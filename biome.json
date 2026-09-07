@@ -1,0 +1,123 @@
+{
+	"$schema": "https://biomejs.dev/schemas/2.2.2/schema.json",
+	"assist": {
+		"actions": {
+			"source": {
+				"organizeImports": {
+					"level": "on",
+					"options": {
+						"groups": [
+							":NODE:",
+							":BLANK_LINE:",
+							":PACKAGE:",
+							":BLANK_LINE:",
+							"@/*",
+							":BLANK_LINE:",
+							["./**"],
+							":BLANK_LINE:"
+						]
+					}
+				},
+				"useSortedAttributes": { "level": "on" },
+				"useSortedKeys": { "level": "on" },
+				"useSortedProperties": { "level": "on" }
+			}
+		}
+	},
+	"css": {
+		"linter": {
+			"enabled": false
+		}
+	},
+	"files": {},
+	"formatter": {
+		"attributePosition": "auto",
+		"enabled": true,
+		"formatWithErrors": false,
+		"indentStyle": "tab",
+		"indentWidth": 2,
+		"lineEnding": "lf",
+		"lineWidth": 80
+	},
+	"javascript": {
+		"formatter": {
+			"arrowParentheses": "always",
+			"attributePosition": "multiline",
+			"bracketSameLine": false,
+			"bracketSpacing": true,
+			"expand": "always",
+			"jsxQuoteStyle": "double",
+			"quoteStyle": "single",
+			"semicolons": "asNeeded",
+			"trailingCommas": "all"
+		},
+		"jsxRuntime": "transparent",
+		"parser": {
+			"unsafeParameterDecoratorsEnabled": true
+		}
+	},
+	"linter": {
+		"enabled": true,
+		"rules": {
+			"complexity": {
+				"noBannedTypes": "off",
+				"noStaticOnlyClass": "off"
+			},
+			"correctness": {
+				"noEmptyPattern": "off",
+				"noUnusedImports": "off",
+				"noUnusedVariables": "off",
+				"useExhaustiveDependencies": "off",
+				"useUniqueElementIds": "off"
+			},
+			"nursery": {
+				"useSortedClasses": {
+					"fix": "safe",
+					"level": "error",
+					"options": {
+						"attributes": ["className"],
+						"functions": ["tv"]
+					}
+				}
+			},
+			"performance": {
+				"noAccumulatingSpread": "off",
+				"noDelete": "off"
+			},
+			"recommended": true,
+			"security": {
+				"noDangerouslySetInnerHtml": "off"
+			},
+			"style": {
+				"noNonNullAssertion": "off",
+				"useBlockStatements": "error"
+			},
+			"suspicious": {
+				"noArrayIndexKey": "warn",
+				"noEmptyInterface": "off"
+			}
+		}
+	},
+	"overrides": [
+		{
+			"assist": {
+				"actions": {
+					"source": {
+						"useSortedKeys": { "level": "off" }
+					}
+				}
+			},
+			"includes": ["**/package.json"]
+		},
+		{
+			"includes": ["**/*.json"],
+			"assist": {
+				"actions": {
+					"source": {
+						"useSortedKeys": { "level": "off" }
+					}
+				}
+			}
+		}
+	]
+}

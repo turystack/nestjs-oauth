@@ -1,0 +1,68 @@
+{
+	"name": "@turystack/nestjs-oauth",
+	"description": "Authorization Code + PKCE authorization server for NestJS, issuing sessions as httpOnly cookies.",
+	"private": false,
+	"version": "1.0.0",
+	"type": "module",
+	"sideEffects": false,
+	"main": "./dist/index.js",
+	"module": "./dist/index.js",
+	"types": "./dist/index.d.ts",
+	"exports": {
+		".": {
+			"types": "./dist/index.d.ts",
+			"import": "./dist/index.js",
+			"default": "./dist/index.js"
+		}
+	},
+	"publishConfig": {
+		"access": "public"
+	},
+	"engines": {
+		"node": ">=20"
+	},
+	"files": [
+		"dist"
+	],
+	"scripts": {
+		"build": "tsc -p tsconfig.build.json && tsc-alias -p tsconfig.build.json",
+		"typecheck": "tsc --noEmit",
+		"test": "vitest run",
+		"test:cov": "vitest run --coverage",
+		"lint": "biome lint ./src",
+		"format": "biome format --write ./src",
+		"check": "biome check ./src",
+		"check:fix": "biome check --write ./src",
+		"prepack": "pnpm run build"
+	},
+	"repository": {
+		"type": "git",
+		"url": "https://github.com/turystack/nestjs-oauth.git"
+	},
+	"peerDependencies": {
+		"@nestjs/common": "^11.0.0",
+		"@nestjs/core": "^11.0.0",
+		"@turystack/nestjs-config": "^1.0.0",
+		"@turystack/nestjs-iam": "^1.0.0",
+		"@turystack/nestjs-server": "^1.0.0",
+		"reflect-metadata": "^0.2.0",
+		"zod": "^4.0.0"
+	},
+	"devDependencies": {
+		"@biomejs/biome": "2.5.4",
+		"@nestjs/common": "^11.0.0",
+		"@nestjs/core": "^11.0.0",
+		"@nestjs/testing": "^11.0.0",
+		"@turystack/nestjs-config": "^1.0.0",
+		"@turystack/nestjs-iam": "^1.0.0",
+		"@turystack/nestjs-server": "^1.0.0",
+		"@types/node": "^25.5.0",
+		"@vitest/coverage-v8": "^4.1.10",
+		"reflect-metadata": "^0.2.2",
+		"tsc-alias": "^1.9.1",
+		"typescript": "^7.0.2",
+		"vite": "^8.1.5",
+		"vitest": "^4.1.10",
+		"zod": "^4.0.0"
+	}
+}

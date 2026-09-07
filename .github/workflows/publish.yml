@@ -1,0 +1,65 @@
+name: Publish Package
+
+on:
+  push:
+    branches:
+      - main
+
+permissions:
+  id-token: write
+  contents: write
+
+jobs:
+  # Nothing reaches npm without the suite passing.
+  verify:
+    if: "!contains(github.event.head_commit.message, 'chore: release')"
+    uses: ./.github/workflows/ci.yml
+
+  publish:
+    if: "!contains(github.event.head_commit.message, 'chore: release')"
+    needs: verify
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: latest
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          registry-url: 'https://registry.npmjs.org'
+          cache: 'pnpm'
+
+      - name: Configure git
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+      - name: Determine bump type
+        id: bump-type
+        run: |
+          LAST_TAG=$(git describe --tags --abbrev=0 2>/dev/null || git rev-list --max-parents=0 HEAD)
+          COMMITS=$(git log "${LAST_TAG}..HEAD" --pretty=format:"%s%n%b" 2>/dev/null || git log --pretty=format:"%s%n%b")
+
+          BUMP="patch"
+          if echo "$COMMITS" | grep -qE "(BREAKING CHANGE|^[a-z]+(\([^)]+\))?!:)"; then
+            BUMP="major"
+          elif echo "$COMMITS" | grep -qE "^feat(\([^)]+\))?:"; then
+            BUMP="minor"
+          fi
+
+          echo "bump=$BUMP" >> "$GITHUB_OUTPUT"
+
+      - name: Bump version and tag
+        run: |
+          pnpm version ${{ steps.bump-type.outputs.bump }} --message "chore: release %s"
+          git push origin main --follow-tags
+
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm run build
+      - run: pnpm publish --provenance --access public --no-git-checks
