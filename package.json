@@ -4,6 +4,7 @@
 	"private": false,
 	"version": "1.0.0",
 	"type": "module",
+	"packageManager": "pnpm@10.12.3",
 	"sideEffects": false,
 	"main": "./dist/index.js",
 	"module": "./dist/index.js",
