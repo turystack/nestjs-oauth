@@ -2,7 +2,7 @@
 	"name": "@turystack/nestjs-oauth",
 	"description": "Authorization Code + PKCE authorization server for NestJS, issuing sessions as httpOnly cookies.",
 	"private": false,
-	"version": "1.0.1",
+	"version": "1.1.0",
 	"type": "module",
 	"packageManager": "pnpm@10.12.3",
 	"sideEffects": false,
