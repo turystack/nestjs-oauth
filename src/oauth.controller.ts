@@ -27,8 +27,8 @@ const transactionQuery = z.object({
 })
 
 const transactionResponse = z.object({
-	clientId: z.string(),
-	redirectUri: z.string(),
+	client_id: z.string(),
+	redirect_uri: z.string(),
 	scopes: z.array(z.string()).optional(),
 })
 
@@ -48,7 +48,7 @@ const tokenBody = z.object({
  * first — which is what keeps a protected screen from flashing a login form.
  */
 const sessionResponse = z.object({
-	expiresAt: z.number(),
+	expires_at: z.number(),
 })
 
 type ResponseLike = {
@@ -129,24 +129,9 @@ export class OAuthController {
 		@Query() query: z.infer<typeof authorizeQuery>,
 		@Res() response: ResponseLike,
 	): Promise<void> {
-		const target = await this.oauth.authorize({
-			clientId: query.client_id,
-			codeChallenge: query.code_challenge,
-			codeChallengeMethod: query.code_challenge_method,
-			redirectUri: query.redirect_uri,
-			...(query.scope === undefined
-				? {}
-				: {
-						scope: query.scope,
-					}),
-			...(query.state === undefined
-				? {}
-				: {
-						state: query.state,
-					}),
-		})
-
-		response.redirect(target)
+		// The query already carries the model's names, so it is handed over as it
+		// arrived — no layer in between re-cases `client_id` into something else.
+		response.redirect(await this.oauth.authorize(query))
 	}
 
 	@Route({
@@ -168,8 +153,8 @@ export class OAuthController {
 		const transaction = await this.oauth.readTransaction(query.tx)
 
 		return {
-			clientId: transaction.clientId,
-			redirectUri: transaction.redirectUri,
+			client_id: transaction.client_id,
+			redirect_uri: transaction.redirect_uri,
 			...(transaction.scopes === undefined
 				? {}
 				: {
@@ -198,14 +183,7 @@ export class OAuthController {
 		})
 		response: ResponseLike,
 	): Promise<z.infer<typeof sessionResponse>> {
-		const session = await this.oauth.exchangeCode({
-			clientId: body.client_id,
-			code: body.code,
-			codeVerifier: body.code_verifier,
-			redirectUri: body.redirect_uri,
-		})
-
-		return this.deliver(response, session)
+		return this.deliver(response, await this.oauth.exchangeCode(body))
 	}
 
 	@Route({
@@ -261,16 +239,14 @@ export class OAuthController {
 	private deliver(
 		response: ResponseLike,
 		session: OAuthSession,
-	): {
-		expiresAt: number
-	} {
+	): z.infer<typeof sessionResponse> {
 		writeSessionCookies(response, session, {
 			...(this.options.cookie ?? {}),
 			refreshMaxAge: this.options.refreshTtl ?? DEFAULT_REFRESH_TTL,
 		})
 
 		return {
-			expiresAt: session.expiresAt,
+			expires_at: session.expires_at,
 		}
 	}
 }

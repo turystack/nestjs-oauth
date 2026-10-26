@@ -1,10 +1,12 @@
 import { type DynamicModule, Module, type Provider } from '@nestjs/common'
+import { ModuleRef } from '@nestjs/core'
 import { ConfigService } from '@turystack/nestjs-config'
 
 import { OAUTH_CODE_STORE, OAUTH_OPTIONS } from '@/oauth.constants.js'
 import { OAuthController } from '@/oauth.controller.js'
 import { OAuthService } from '@/oauth.service.js'
 import type {
+	OAuthCodeStore,
 	OAuthModuleFactoryOptions,
 	OAuthModuleOptions,
 	OAuthOptions,
@@ -19,8 +21,8 @@ export class OAuthModule {
 	/**
 	 * Registers the authorization server globally — once, in the API root.
 	 *
-	 * It needs `IamModule` registered: this module decides *whether* a session
-	 * may be issued, and `IamTokenService` is what mints it.
+	 * It needs `AccessModule` registered: this module decides *whether* a session
+	 * may be issued, and `AccessTokenService` is what mints it.
 	 *
 	 * The `(config) => options` factory form injects the `ConfigService` from
 	 * `@turystack/nestjs-config` at boot.
@@ -70,15 +72,26 @@ export class OAuthModule {
 			| OAuthModuleOptions
 			| ((config: ConfigService) => OAuthModuleFactoryOptions),
 	): Provider[] {
+		// The factory form's options exist only once the factory runs, so its
+		// `store` is chosen then and built by Nest with its dependencies; the
+		// object form names it up front, as a class provider.
 		const storeProvider: Provider =
-			typeof optionsOrFactory !== 'function' && optionsOrFactory.store
+			typeof optionsOrFactory === 'function'
 				? {
+						inject: [
+							OAUTH_RESOLVED_OPTIONS,
+							ModuleRef,
+						],
 						provide: OAUTH_CODE_STORE,
-						useClass: optionsOrFactory.store,
+						useFactory: (
+							options: OAuthModuleFactoryOptions,
+							moduleRef: ModuleRef,
+						): Promise<OAuthCodeStore> =>
+							moduleRef.create(options.store ?? MemoryOAuthCodeStore),
 					}
 				: {
 						provide: OAUTH_CODE_STORE,
-						useClass: MemoryOAuthCodeStore,
+						useClass: optionsOrFactory.store ?? MemoryOAuthCodeStore,
 					}
 
 		return [

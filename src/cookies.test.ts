@@ -82,9 +82,9 @@ describe('writeSessionCookies', () => {
 		writeSessionCookies(
 			response,
 			{
-				accessToken: 'access',
-				expiresAt: Date.now() + 900_000,
-				refreshToken: 'refresh',
+				access_token: 'access',
+				expires_at: Date.now() + 900_000,
+				refresh_token: 'refresh',
 			},
 			{
 				refreshMaxAge: 604_800,
@@ -107,9 +107,9 @@ describe('writeSessionCookies', () => {
 		writeSessionCookies(
 			response,
 			{
-				accessToken: 'access',
-				expiresAt: Date.now() + 1000,
-				refreshToken: 'refresh',
+				access_token: 'access',
+				expires_at: Date.now() + 1000,
+				refresh_token: 'refresh',
 			},
 			{
 				accessName: 'acme_session',
@@ -129,9 +129,9 @@ describe('writeSessionCookies', () => {
 		writeSessionCookies(
 			response,
 			{
-				accessToken: 'access',
-				expiresAt: Date.now() + 1000,
-				refreshToken: 'refresh',
+				access_token: 'access',
+				expires_at: Date.now() + 1000,
+				refresh_token: 'refresh',
 			},
 			{
 				refreshMaxAge: 10,

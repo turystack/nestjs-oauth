@@ -14,7 +14,7 @@ pnpm add @turystack/nestjs-oauth
 The host application provides these:
 
 ```bash
-pnpm add @nestjs/common @nestjs/core @turystack/nestjs-config @turystack/nestjs-iam @turystack/nestjs-server reflect-metadata zod
+pnpm add @nestjs/common @nestjs/core @turystack/exceptions @turystack/nestjs-config @turystack/nestjs-access @turystack/nestjs-server reflect-metadata zod
 ```
 
 ## Documentation

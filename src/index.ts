@@ -25,6 +25,7 @@ export type {
 	OAuthModuleOptions,
 	OAuthOptions,
 	OAuthSession,
+	OAuthTokenRequest,
 	OAuthTransaction,
 } from '@/oauth.types.js'
 export {

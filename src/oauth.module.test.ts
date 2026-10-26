@@ -1,10 +1,11 @@
-import { Injectable } from '@nestjs/common'
+import { Global, Injectable, Module, type OnModuleInit } from '@nestjs/common'
 import { Test } from '@nestjs/testing'
 import {
-	IamModule,
-	type IamProfile,
-	type IamProfileResolver,
-} from '@turystack/nestjs-iam'
+	AccessModule,
+	type AccessProfile,
+	type AccessProfileResolver,
+} from '@turystack/nestjs-access'
+import { ConfigService } from '@turystack/nestjs-config'
 import { describe, expect, it } from 'vitest'
 
 import { OAUTH_CODE_STORE, OAUTH_OPTIONS } from '@/oauth.constants.js'
@@ -16,14 +17,52 @@ import type { OAuthCodeStore } from '@/oauth.types.js'
 import { MemoryOAuthCodeStore } from '@/store/memory-code-store.js'
 
 @Injectable()
-class StubProfileResolver implements IamProfileResolver {
-	resolveProfile(): Promise<IamProfile | null> {
+class StubProfileResolver implements AccessProfileResolver {
+	resolveProfile(): Promise<AccessProfile | null> {
 		return Promise.resolve(null)
 	}
 }
 
 @Injectable()
 class RecordingStore extends MemoryOAuthCodeStore {}
+
+@Injectable()
+class StoreClient {
+	readonly name = 'shared-redis'
+}
+
+@Global()
+@Module({
+	exports: [
+		ConfigService,
+		StoreClient,
+	],
+	providers: [
+		{
+			provide: ConfigService,
+			useValue: {
+				get: (key: string) =>
+					key === 'AUTH_APP_URL' ? OPTIONS.signInUrl : undefined,
+			},
+		},
+		StoreClient,
+	],
+})
+class StubConfigModule {}
+
+/** A shared store: its client injected, its connection opened on init. */
+@Injectable()
+class SharedStore extends MemoryOAuthCodeStore implements OnModuleInit {
+	opened = false
+
+	constructor(readonly client: StoreClient) {
+		super()
+	}
+
+	onModuleInit(): void {
+		this.opened = true
+	}
+}
 
 const OPTIONS = {
 	clients: [
@@ -40,7 +79,7 @@ const OPTIONS = {
 async function createModule(store?: typeof RecordingStore) {
 	return Test.createTestingModule({
 		imports: [
-			IamModule.register({
+			AccessModule.register({
 				permissions: {},
 				profileResolver: StubProfileResolver,
 				secret: 'a-secret-long-enough-for-hs256-signing',
@@ -55,6 +94,30 @@ async function createModule(store?: typeof RecordingStore) {
 			),
 		],
 	}).compile()
+}
+
+async function createFactoryModule(store?: typeof SharedStore) {
+	const moduleRef = await Test.createTestingModule({
+		imports: [
+			StubConfigModule,
+			AccessModule.register({
+				permissions: {},
+				profileResolver: StubProfileResolver,
+				secret: 'a-secret-long-enough-for-hs256-signing',
+			}),
+			OAuthModule.register((config) => ({
+				clients: OPTIONS.clients,
+				signInUrl: config.get('AUTH_APP_URL' as never) as string,
+				...(store && {
+					store,
+				}),
+			})),
+		],
+	}).compile()
+
+	await moduleRef.init()
+
+	return moduleRef
 }
 
 /**
@@ -107,12 +170,35 @@ describe('OAuthModule', () => {
 		const moduleRef = await createModule()
 		const service = moduleRef.get(OAuthService)
 		const target = await service.authorize({
-			clientId: 'web',
-			codeChallenge: 'a'.repeat(43),
-			codeChallengeMethod: 'S256',
-			redirectUri: 'https://app.example.com/callback',
+			client_id: 'web',
+			code_challenge: 'a'.repeat(43),
+			code_challenge_method: 'S256',
+			redirect_uri: 'https://app.example.com/callback',
 		})
 
 		expect(new URL(target).searchParams.get('tx')).toBeTruthy()
+	})
+
+	it('uses the store the factory form returned, built with its dependencies', async () => {
+		const moduleRef = await createFactoryModule(SharedStore)
+		const store = moduleRef.get<OAuthCodeStore>(OAUTH_CODE_STORE)
+
+		expect(store).toBeInstanceOf(SharedStore)
+		expect((store as SharedStore).client).toBeInstanceOf(StoreClient)
+		expect((store as SharedStore).opened).toBe(true)
+		expect(moduleRef.get(OAUTH_OPTIONS)).not.toHaveProperty('store')
+		await moduleRef.close()
+	})
+
+	it('defaults the factory form to the in-memory store', async () => {
+		const moduleRef = await createFactoryModule()
+
+		expect(moduleRef.get<OAuthCodeStore>(OAUTH_CODE_STORE)).toBeInstanceOf(
+			MemoryOAuthCodeStore,
+		)
+		expect(moduleRef.get(OAUTH_OPTIONS)).toMatchObject({
+			signInUrl: OPTIONS.signInUrl,
+		})
+		await moduleRef.close()
 	})
 })

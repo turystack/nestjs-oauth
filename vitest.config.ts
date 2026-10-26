@@ -12,6 +12,14 @@ export default defineConfig({
 		alias: {
 			'@': path.resolve(__dirname, 'src'),
 		},
+		// The sibling peers are linked from source, each with its own
+		// node_modules. One app holds one Nest and one zod; without this a
+		// guard from nestjs-access asks for a `Reflector` this app never made.
+		dedupe: [
+			'@nestjs/common',
+			'@nestjs/core',
+			'zod',
+		],
 	},
 	test: {
 		coverage: {
@@ -27,6 +35,13 @@ export default defineConfig({
 		},
 		include: ['**/*.test.ts'],
 		root: './src',
+		server: {
+			deps: {
+				inline: [
+					/@turystack\/nestjs-(config|access|server)/,
+				],
+			},
+		},
 		setupFiles: ['../vitest.setup.ts'],
 	},
 })

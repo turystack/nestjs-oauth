@@ -42,7 +42,7 @@ export type OAuthOptions = {
 	transactionTtl?: number
 	/**
 	 * Seconds the refresh cookie lives. Default 604800 (7 days), matching
-	 * `IamModule`'s own `refreshExpiresIn` default — set both together, or the
+	 * `AccessModule`'s own `refreshExpiresIn` default — set both together, or the
 	 * browser drops a token the API would still have accepted.
 	 */
 	refreshTtl?: number
@@ -57,28 +57,34 @@ export type OAuthModuleOptions = OAuthOptions & {
 
 export type OAuthModuleFactoryOptions = Omit<OAuthModuleOptions, 'imports'>
 
-/** An authorization that has started and is waiting for the user to sign in. */
+/**
+ * An authorization that has started and is waiting for the user to sign in.
+ *
+ * A stored record, so its keys are the model's snake_case — the spelling a
+ * shared store writes to its table or hash, and the one the OAuth parameters
+ * already use on the wire (`client_id`, `redirect_uri`, `code_challenge`).
+ */
 export type OAuthTransaction = {
 	id: string
-	clientId: string
-	redirectUri: string
-	codeChallenge: string
+	client_id: string
+	redirect_uri: string
+	code_challenge: string
 	state?: string
 	scopes?: string[]
 	/** Epoch milliseconds. */
-	expiresAt: number
+	expires_at: number
 }
 
 /** An authorization the user completed, waiting to be exchanged for a session. */
 export type OAuthAuthorizationCode = {
 	code: string
-	clientId: string
-	redirectUri: string
-	codeChallenge: string
-	userId: string
-	workspaceId?: string
+	client_id: string
+	redirect_uri: string
+	code_challenge: string
+	user_id: string
+	workspace_id?: string
 	/** Epoch milliseconds. */
-	expiresAt: number
+	expires_at: number
 }
 
 /**
@@ -99,18 +105,31 @@ export interface OAuthCodeStore {
 	takeCode(code: string): Promise<OAuthAuthorizationCode | null>
 }
 
+/** The `/authorize` query, carried with the names RFC 6749 and RFC 7636 give it. */
 export type OAuthAuthorizeRequest = {
-	clientId: string
-	redirectUri: string
-	codeChallenge: string
-	codeChallengeMethod: string
+	client_id: string
+	redirect_uri: string
+	code_challenge: string
+	code_challenge_method: string
 	state?: string
 	scope?: string
 }
 
+/** The `/token` body: a code, the verifier for its challenge, and who redeems it. */
+export type OAuthTokenRequest = {
+	client_id: string
+	code: string
+	code_verifier: string
+	redirect_uri: string
+}
+
+/**
+ * A session as `AccessTokenService` minted it, with the lifetime turned into an
+ * instant. The token keys are `TokenPair`'s, which are already RFC 6749's.
+ */
 export type OAuthSession = {
-	accessToken: string
-	refreshToken: string
+	access_token: string
+	refresh_token: string
 	/** Epoch milliseconds the access token stops being valid. */
-	expiresAt: number
+	expires_at: number
 }

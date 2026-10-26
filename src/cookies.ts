@@ -73,13 +73,13 @@ export function writeSessionCookies(
 ): void {
 	const accessMaxAge = Math.max(
 		0,
-		Math.floor((session.expiresAt - Date.now()) / 1000),
+		Math.floor((session.expires_at - Date.now()) / 1000),
 	)
 
 	append(response, [
 		serializeCookie(
 			options.accessName ?? DEFAULT_ACCESS_COOKIE,
-			session.accessToken,
+			session.access_token,
 			{
 				...options,
 				maxAge: accessMaxAge,
@@ -87,7 +87,7 @@ export function writeSessionCookies(
 		),
 		serializeCookie(
 			options.refreshName ?? DEFAULT_REFRESH_COOKIE,
-			session.refreshToken,
+			session.refresh_token,
 			{
 				...options,
 				maxAge: options.refreshMaxAge,

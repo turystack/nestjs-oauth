@@ -1,5 +1,5 @@
 import { Inject, Injectable } from '@nestjs/common'
-import { IamTokenService } from '@turystack/nestjs-iam'
+import { AccessTokenService } from '@turystack/nestjs-access'
 
 import {
 	DEFAULT_CODE_TTL,
@@ -13,6 +13,7 @@ import type {
 	OAuthCodeStore,
 	OAuthOptions,
 	OAuthSession,
+	OAuthTokenRequest,
 	OAuthTransaction,
 } from '@/oauth.types.js'
 import {
@@ -47,8 +48,8 @@ export class OAuthService {
 		// Injected by explicit token rather than by reflected type: a
 		// type-only import erases the runtime reference `emitDecoratorMetadata`
 		// depends on, and the failure would only appear when the module boots.
-		@Inject(IamTokenService)
-		private readonly tokens: IamTokenService,
+		@Inject(AccessTokenService)
+		private readonly tokens: AccessTokenService,
 	) {}
 
 	/**
@@ -59,32 +60,32 @@ export class OAuthService {
 	 * carry is the authorization code.
 	 */
 	async authorize(request: OAuthAuthorizeRequest): Promise<string> {
-		if (request.codeChallengeMethod !== CODE_CHALLENGE_METHOD) {
+		if (request.code_challenge_method !== CODE_CHALLENGE_METHOD) {
 			throw new OAuthInvalidRequestException(
 				`code_challenge_method must be ${CODE_CHALLENGE_METHOD}`,
 			)
 		}
 
-		if (!isValidCodeChallenge(request.codeChallenge)) {
+		if (!isValidCodeChallenge(request.code_challenge)) {
 			throw new OAuthInvalidRequestException('code_challenge is malformed')
 		}
 
-		const client = this.findClient(request.clientId)
+		const client = this.findClient(request.client_id)
 
-		if (!client.redirectUris.includes(request.redirectUri)) {
+		if (!client.redirectUris.includes(request.redirect_uri)) {
 			throw new OAuthInvalidRequestException(
 				'redirect_uri is not registered for this client',
 			)
 		}
 
 		const transaction: OAuthTransaction = {
-			clientId: client.id,
-			codeChallenge: request.codeChallenge,
-			expiresAt:
+			client_id: client.id,
+			code_challenge: request.code_challenge,
+			expires_at:
 				Date.now() +
 				(this.options.transactionTtl ?? DEFAULT_TRANSACTION_TTL) * 1000,
 			id: randomToken(),
-			redirectUri: request.redirectUri,
+			redirect_uri: request.redirect_uri,
 			...(request.state === undefined
 				? {}
 				: {
@@ -121,6 +122,10 @@ export class OAuthService {
 	/**
 	 * The login application says who the user is; this issues the code and
 	 * returns the URL to send the browser back to.
+	 *
+	 * `userId` and `workspaceId` are argument names, so they stay camelCase —
+	 * the same seam `AccessTokenService.issueTokens` draws. The code they are
+	 * written into is a stored record and reads `user_id` / `workspace_id`.
 	 */
 	async completeAuthorization(
 		transactionId: string,
@@ -133,23 +138,24 @@ export class OAuthService {
 		const code = randomToken()
 
 		await this.store.saveCode({
-			clientId: transaction.clientId,
+			client_id: transaction.client_id,
 			code,
-			codeChallenge: transaction.codeChallenge,
-			expiresAt: Date.now() + (this.options.codeTtl ?? DEFAULT_CODE_TTL) * 1000,
-			redirectUri: transaction.redirectUri,
-			userId,
+			code_challenge: transaction.code_challenge,
+			expires_at:
+				Date.now() + (this.options.codeTtl ?? DEFAULT_CODE_TTL) * 1000,
+			redirect_uri: transaction.redirect_uri,
+			user_id: userId,
 			...(options?.workspaceId === undefined
 				? {}
 				: {
-						workspaceId: options.workspaceId,
+						workspace_id: options.workspaceId,
 					}),
 		})
 		// The transaction is spent: one sign-in produces one code, so a replayed
 		// transaction id cannot mint a second.
 		await this.store.deleteTransaction(transaction.id)
 
-		const url = new URL(transaction.redirectUri)
+		const url = new URL(transaction.redirect_uri)
 		url.searchParams.set('code', code)
 
 		if (transaction.state !== undefined) {
@@ -165,12 +171,7 @@ export class OAuthService {
 	 * The code is consumed before anything else is checked, so a wrong verifier
 	 * burns the code rather than leaving it available for another guess.
 	 */
-	async exchangeCode(input: {
-		clientId: string
-		code: string
-		codeVerifier: string
-		redirectUri: string
-	}): Promise<OAuthSession> {
+	async exchangeCode(input: OAuthTokenRequest): Promise<OAuthSession> {
 		const grant = await this.store.takeCode(input.code)
 
 		if (!grant) {
@@ -178,25 +179,28 @@ export class OAuthService {
 		}
 
 		if (
-			grant.clientId !== input.clientId ||
-			grant.redirectUri !== input.redirectUri
+			grant.client_id !== input.client_id ||
+			grant.redirect_uri !== input.redirect_uri
 		) {
 			throw new OAuthInvalidGrantException()
 		}
 
-		if (!verifyChallenge(input.codeVerifier, grant.codeChallenge)) {
+		if (!verifyChallenge(input.code_verifier, grant.code_challenge)) {
 			throw new OAuthInvalidGrantException()
 		}
 
-		return this.issue(grant.userId, grant.workspaceId)
+		return this.issue(grant.user_id, grant.workspace_id)
 	}
 
-	/** Rotates a refresh token into a new session. */
+	/**
+	 * Rotates a refresh token into a new session, for the same user and the
+	 * same workspace the token was minted for — a refresh that dropped the
+	 * workspace would quietly demote the session to organization-only.
+	 */
 	async refresh(refreshToken: string): Promise<OAuthSession> {
-		const { userId, workspaceId } =
-			await this.tokens.verifyRefreshToken(refreshToken)
+		const subject = await this.tokens.verifyRefreshToken(refreshToken)
 
-		return this.issue(userId, workspaceId)
+		return this.issue(subject.user_id, subject.workspace_id)
 	}
 
 	private async issue(
@@ -213,9 +217,9 @@ export class OAuthService {
 		)
 
 		return {
-			accessToken: pair.accessToken,
-			expiresAt: Date.now() + pair.expiresIn * 1000,
-			refreshToken: pair.refreshToken,
+			access_token: pair.access_token,
+			expires_at: Date.now() + pair.expires_in * 1000,
+			refresh_token: pair.refresh_token,
 		}
 	}
 

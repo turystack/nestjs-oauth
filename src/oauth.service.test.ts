@@ -1,6 +1,6 @@
 import { randomBytes } from 'node:crypto'
 
-import type { IamTokenService } from '@turystack/nestjs-iam'
+import type { AccessTokenService } from '@turystack/nestjs-access'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 import { OAuthService } from '@/oauth.service.js'
@@ -42,31 +42,41 @@ function createOptions(overrides: Partial<OAuthOptions> = {}): OAuthOptions {
 
 function authorizeRequest(overrides: Record<string, unknown> = {}) {
 	return {
-		clientId: 'web',
-		codeChallenge: challenge,
-		codeChallengeMethod: 'S256',
-		redirectUri: REDIRECT_URI,
+		client_id: 'web',
+		code_challenge: challenge,
+		code_challenge_method: 'S256',
+		redirect_uri: REDIRECT_URI,
 		...overrides,
 	} as Parameters<OAuthService['authorize']>[0]
 }
 
 describe('OAuthService', () => {
 	let store: MemoryOAuthCodeStore
-	let tokens: IamTokenService
+	let tokens: AccessTokenService
 	let service: OAuthService
 
 	beforeEach(() => {
 		store = new MemoryOAuthCodeStore()
+		// Typed against the real signatures: an untyped `vi.fn()` resolving a
+		// camelCase pair is how this suite once stayed green while the service
+		// read keys `AccessTokenService` no longer returned.
 		tokens = {
-			issueTokens: vi.fn().mockResolvedValue({
-				accessToken: 'access',
-				expiresIn: 900,
-				refreshToken: 'refresh',
-			}),
-			verifyRefreshToken: vi.fn().mockResolvedValue({
-				userId: 'user-1',
-			}),
-		} as unknown as IamTokenService
+			issueTokens: vi
+				.fn<AccessTokenService['issueTokens']>()
+				.mockResolvedValue({
+					access_token: 'access',
+					expires_in: 900,
+					refresh_token: 'refresh',
+				}),
+			verifyRefreshToken: vi
+				.fn<AccessTokenService['verifyRefreshToken']>()
+				.mockResolvedValue({
+					user_id: 'user-1',
+				}),
+		} as Pick<
+			AccessTokenService,
+			'issueTokens' | 'verifyRefreshToken'
+		> as AccessTokenService
 		service = new OAuthService(createOptions(), store, tokens)
 	})
 
@@ -82,7 +92,7 @@ describe('OAuthService', () => {
 			await expect(
 				service.authorize(
 					authorizeRequest({
-						clientId: 'ghost',
+						client_id: 'ghost',
 					}),
 				),
 			).rejects.toBeInstanceOf(OAuthInvalidRequestException)
@@ -92,7 +102,7 @@ describe('OAuthService', () => {
 			await expect(
 				service.authorize(
 					authorizeRequest({
-						redirectUri: 'https://evil.example.com/callback',
+						redirect_uri: 'https://evil.example.com/callback',
 					}),
 				),
 			).rejects.toBeInstanceOf(OAuthInvalidRequestException)
@@ -102,7 +112,7 @@ describe('OAuthService', () => {
 			await expect(
 				service.authorize(
 					authorizeRequest({
-						redirectUri: OTHER_URI,
+						redirect_uri: OTHER_URI,
 					}),
 				),
 			).rejects.toBeInstanceOf(OAuthInvalidRequestException)
@@ -112,7 +122,7 @@ describe('OAuthService', () => {
 			await expect(
 				service.authorize(
 					authorizeRequest({
-						redirectUri: `${REDIRECT_URI}.evil.com`,
+						redirect_uri: `${REDIRECT_URI}.evil.com`,
 					}),
 				),
 			).rejects.toBeInstanceOf(OAuthInvalidRequestException)
@@ -122,7 +132,7 @@ describe('OAuthService', () => {
 			await expect(
 				service.authorize(
 					authorizeRequest({
-						codeChallengeMethod: 'plain',
+						code_challenge_method: 'plain',
 					}),
 				),
 			).rejects.toBeInstanceOf(OAuthInvalidRequestException)
@@ -132,7 +142,7 @@ describe('OAuthService', () => {
 			await expect(
 				service.authorize(
 					authorizeRequest({
-						codeChallenge: 'nope',
+						code_challenge: 'nope',
 					}),
 				),
 			).rejects.toBeInstanceOf(OAuthInvalidRequestException)
@@ -203,24 +213,24 @@ describe('OAuthService', () => {
 
 		it('returns a session for the right verifier', async () => {
 			const session = await service.exchangeCode({
-				clientId: 'web',
+				client_id: 'web',
 				code: await issueCode(),
-				codeVerifier: verifier,
-				redirectUri: REDIRECT_URI,
+				code_verifier: verifier,
+				redirect_uri: REDIRECT_URI,
 			})
 
-			expect(session.accessToken).toBe('access')
-			expect(session.refreshToken).toBe('refresh')
-			expect(session.expiresAt).toBeGreaterThan(Date.now())
+			expect(session.access_token).toBe('access')
+			expect(session.refresh_token).toBe('refresh')
+			expect(session.expires_at).toBeGreaterThan(Date.now())
 		})
 
 		it('refuses a wrong verifier', async () => {
 			await expect(
 				service.exchangeCode({
-					clientId: 'web',
+					client_id: 'web',
 					code: await issueCode(),
-					codeVerifier: randomBytes(32).toString('base64url'),
-					redirectUri: REDIRECT_URI,
+					code_verifier: randomBytes(32).toString('base64url'),
+					redirect_uri: REDIRECT_URI,
 				}),
 			).rejects.toBeInstanceOf(OAuthInvalidGrantException)
 		})
@@ -230,19 +240,19 @@ describe('OAuthService', () => {
 
 			await expect(
 				service.exchangeCode({
-					clientId: 'web',
+					client_id: 'web',
 					code,
-					codeVerifier: randomBytes(32).toString('base64url'),
-					redirectUri: REDIRECT_URI,
+					code_verifier: randomBytes(32).toString('base64url'),
+					redirect_uri: REDIRECT_URI,
 				}),
 			).rejects.toBeInstanceOf(OAuthInvalidGrantException)
 
 			await expect(
 				service.exchangeCode({
-					clientId: 'web',
+					client_id: 'web',
 					code,
-					codeVerifier: verifier,
-					redirectUri: REDIRECT_URI,
+					code_verifier: verifier,
+					redirect_uri: REDIRECT_URI,
 				}),
 			).rejects.toBeInstanceOf(OAuthInvalidGrantException)
 		})
@@ -250,10 +260,10 @@ describe('OAuthService', () => {
 		it('answers a code exactly once', async () => {
 			const code = await issueCode()
 			const input = {
-				clientId: 'web',
+				client_id: 'web',
 				code,
-				codeVerifier: verifier,
-				redirectUri: REDIRECT_URI,
+				code_verifier: verifier,
+				redirect_uri: REDIRECT_URI,
 			}
 
 			await service.exchangeCode(input)
@@ -266,10 +276,10 @@ describe('OAuthService', () => {
 		it('refuses a code presented by a different client', async () => {
 			await expect(
 				service.exchangeCode({
-					clientId: 'admin',
+					client_id: 'admin',
 					code: await issueCode(),
-					codeVerifier: verifier,
-					redirectUri: REDIRECT_URI,
+					code_verifier: verifier,
+					redirect_uri: REDIRECT_URI,
 				}),
 			).rejects.toBeInstanceOf(OAuthInvalidGrantException)
 		})
@@ -277,10 +287,10 @@ describe('OAuthService', () => {
 		it('refuses a code redeemed against a different redirect_uri', async () => {
 			await expect(
 				service.exchangeCode({
-					clientId: 'web',
+					client_id: 'web',
 					code: await issueCode(),
-					codeVerifier: verifier,
-					redirectUri: OTHER_URI,
+					code_verifier: verifier,
+					redirect_uri: OTHER_URI,
 				}),
 			).rejects.toBeInstanceOf(OAuthInvalidGrantException)
 		})
@@ -288,10 +298,10 @@ describe('OAuthService', () => {
 		it('refuses a code that never existed', async () => {
 			await expect(
 				service.exchangeCode({
-					clientId: 'web',
+					client_id: 'web',
 					code: 'invented',
-					codeVerifier: verifier,
-					redirectUri: REDIRECT_URI,
+					code_verifier: verifier,
+					redirect_uri: REDIRECT_URI,
 				}),
 			).rejects.toBeInstanceOf(OAuthInvalidGrantException)
 		})
@@ -309,10 +319,10 @@ describe('OAuthService', () => {
 			)
 
 			await service.exchangeCode({
-				clientId: 'web',
+				client_id: 'web',
 				code: back.searchParams.get('code') as string,
-				codeVerifier: verifier,
-				redirectUri: REDIRECT_URI,
+				code_verifier: verifier,
+				redirect_uri: REDIRECT_URI,
 			})
 
 			expect(tokens.issueTokens).toHaveBeenCalledWith('user-1', {
@@ -325,8 +335,31 @@ describe('OAuthService', () => {
 		it('mints a new session from a valid refresh token', async () => {
 			const session = await service.refresh('refresh')
 
-			expect(session.accessToken).toBe('access')
+			expect(session.access_token).toBe('access')
+			expect(session.refresh_token).toBe('refresh')
 			expect(tokens.verifyRefreshToken).toHaveBeenCalledWith('refresh')
+			expect(tokens.issueTokens).toHaveBeenCalledWith('user-1', undefined)
+		})
+
+		it('keeps the user and the workspace the refresh token was minted for', async () => {
+			vi.mocked(tokens.verifyRefreshToken).mockResolvedValueOnce({
+				user_id: 'user-1',
+				workspace_id: 'ws-1',
+			})
+
+			await service.refresh('refresh')
+
+			expect(tokens.issueTokens).toHaveBeenCalledWith('user-1', {
+				workspaceId: 'ws-1',
+			})
+		})
+
+		it('turns expires_in seconds into an expires_at instant', async () => {
+			const before = Date.now()
+			const session = await service.refresh('refresh')
+
+			expect(session.expires_at).toBeGreaterThanOrEqual(before + 900_000)
+			expect(session.expires_at).toBeLessThanOrEqual(Date.now() + 900_000)
 		})
 
 		it('propagates the rejection when the refresh token does not verify', async () => {

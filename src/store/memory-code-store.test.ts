@@ -6,23 +6,23 @@ import { MemoryOAuthCodeStore } from '@/store/memory-code-store.js'
 
 function transaction(overrides: Partial<OAuthTransaction> = {}) {
 	return {
-		clientId: 'web',
-		codeChallenge: 'challenge',
-		expiresAt: Date.now() + 60_000,
+		client_id: 'web',
+		code_challenge: 'challenge',
+		expires_at: Date.now() + 60_000,
 		id: 'tx-1',
-		redirectUri: 'https://app.example.com/callback',
+		redirect_uri: 'https://app.example.com/callback',
 		...overrides,
 	} satisfies OAuthTransaction
 }
 
 function code(overrides: Partial<OAuthAuthorizationCode> = {}) {
 	return {
-		clientId: 'web',
+		client_id: 'web',
 		code: 'code-1',
-		codeChallenge: 'challenge',
-		expiresAt: Date.now() + 60_000,
-		redirectUri: 'https://app.example.com/callback',
-		userId: 'user-1',
+		code_challenge: 'challenge',
+		expires_at: Date.now() + 60_000,
+		redirect_uri: 'https://app.example.com/callback',
+		user_id: 'user-1',
 		...overrides,
 	} satisfies OAuthAuthorizationCode
 }
@@ -98,7 +98,7 @@ describe('MemoryOAuthCodeStore', () => {
 		await store.saveCode(
 			code({
 				code: 'fresh',
-				expiresAt: Date.now() + 60_000,
+				expires_at: Date.now() + 60_000,
 			}),
 		)
 

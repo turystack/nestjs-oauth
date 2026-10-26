@@ -35,7 +35,7 @@ export class MemoryOAuthCodeStore implements OAuthCodeStore {
 			return null
 		}
 
-		if (transaction.expiresAt <= Date.now()) {
+		if (transaction.expires_at <= Date.now()) {
 			this.transactions.delete(id)
 
 			return null
@@ -60,7 +60,7 @@ export class MemoryOAuthCodeStore implements OAuthCodeStore {
 		// in the map is a value someone can keep probing.
 		this.codes.delete(code)
 
-		if (!found || found.expiresAt <= Date.now()) {
+		if (!found || found.expires_at <= Date.now()) {
 			return null
 		}
 
@@ -71,13 +71,13 @@ export class MemoryOAuthCodeStore implements OAuthCodeStore {
 		const now = Date.now()
 
 		for (const [id, transaction] of this.transactions) {
-			if (transaction.expiresAt <= now) {
+			if (transaction.expires_at <= now) {
 				this.transactions.delete(id)
 			}
 		}
 
 		for (const [value, code] of this.codes) {
-			if (code.expiresAt <= now) {
+			if (code.expires_at <= now) {
 				this.codes.delete(value)
 			}
 		}
